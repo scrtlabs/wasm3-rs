@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
+#![feature(or_patterns)]
 //! A rust wrapper for [WASM3](https://github.com/wasm3/wasm3).
 
 extern crate alloc;
