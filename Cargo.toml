@@ -13,7 +13,7 @@ categories = ["api-bindings"]
 [dependencies]
 cty = "0.2"
 thiserror = "1.0"
-impl-trait-for-tuples = "0.2.1"
+impl-trait-for-tuples = "=0.2.1"
 
 [dependencies.ffi]
 path = "wasm3-sys"
