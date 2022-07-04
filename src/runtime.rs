@@ -16,7 +16,7 @@ type PinnedAnyClosure = Pin<Box<dyn core::any::Any + 'static>>;
 #[derive(Debug)]
 pub struct Runtime {
     raw: NonNull<ffi::M3Runtime>,
-    environment: Environment,
+    environment: Option<Environment>,
     // holds all linked closures so that they properly get disposed of when runtime drops
     closure_store: UnsafeCell<Vec<PinnedAnyClosure>>,
     // holds all backing data of loaded modules as they have to be kept alive for the module's lifetime
@@ -40,7 +40,7 @@ impl Runtime {
         .ok_or_else(Error::malloc_error)
         .map(|raw| Runtime {
             raw,
-            environment: environment.clone(),
+            environment: Some(environment.clone()),
             closure_store: UnsafeCell::new(Vec::new()),
             module_data: UnsafeCell::new(Vec::new()),
         })
@@ -48,7 +48,10 @@ impl Runtime {
 
     /// Parses and loads a module from bytes.
     pub fn parse_and_load_module<TData: Into<Box<[u8]>>>(&self, bytes: TData) -> Result<Module> {
-        Module::parse(&self.environment, bytes).and_then(|module| self.load_module(module))
+        match &self.environment {
+            Some(env) => Module::parse(env, bytes).and_then(|module| self.load_module(module)),
+            None => Err(Error::RuntimeIsActive),
+        }
     }
 
     /// Loads a parsed module returning the module if unsuccessful.
@@ -57,7 +60,9 @@ impl Runtime {
     ///
     /// This function will error if the module's environment differs from the one this runtime uses.
     pub fn load_module(&self, module: ParsedModule) -> Result<Module> {
-        if &self.environment != module.environment() {
+        if self.environment.is_none() {
+            Err(Error::RuntimeIsActive)
+        } else if self.environment.as_ref().unwrap() != module.environment() {
             Err(Error::ModuleLoadEnvMismatch)
         } else {
             let raw_mod = module.as_ptr();
@@ -93,30 +98,34 @@ impl Runtime {
         Function::from_raw(self, func)
     }
 
-    /// Returns the raw memory of this runtime.
+    /// Returns a mutable slice of the memory of this runtime.
     ///
-    /// # Safety
-    ///
-    /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
-    pub fn memory(&self) -> *const [u8] {
-        let mut len: u32 = 0;
-        let data = unsafe { ffi::m3_GetMemory(self.as_ptr(), &mut len, 0) };
-        ptr::slice_from_raw_parts(data, len as usize)
-    }
-
-    /// Returns the raw memory of this runtime.
-    ///
-    /// # Safety
-    ///
-    /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
-    pub fn memory_mut(&self) -> *mut [u8] {
-        let mut len: u32 = 0;
-        let data = unsafe { ffi::m3_GetMemory(self.as_ptr(), &mut len, 0) };
-        ptr::slice_from_raw_parts_mut(data, len as usize)
+    /// Calling Wasm functions may lead to reallocations which move the
+    /// location of the module's memory, so this method takes a mutable
+    /// reference to self to ensure that while memory is being manipulated,
+    /// no other operation can be done with the runtime.
+    pub fn memory(&mut self) -> &mut [u8] {
+        unsafe {
+            let mut len: u32 = 0;
+            let mut data = ffi::m3_GetMemory(self.as_ptr(), &mut len, 0);
+            if data.is_null() || (len as isize) > isize::MAX {
+                data = NonNull::dangling().as_ptr();
+                len = 0;
+            }
+            std::slice::from_raw_parts_mut(data, len as usize)
+        }
     }
 }
 
 impl Runtime {
+    pub(crate) fn from_raw(raw: NonNull<ffi::M3Runtime>) -> Self {
+        Self {
+            raw,
+            environment: None,
+            closure_store: UnsafeCell::default(),
+            module_data: UnsafeCell::default(),
+        }
+    }
     pub(crate) fn push_closure(&self, closure: PinnedAnyClosure) {
         unsafe { (*self.closure_store.get()).push(closure) };
     }
@@ -128,7 +137,9 @@ impl Runtime {
 
 impl Drop for Runtime {
     fn drop(&mut self) {
-        unsafe { ffi::m3_FreeRuntime(self.raw.as_ptr()) };
+        if self.environment.is_some() {
+            unsafe { ffi::m3_FreeRuntime(self.raw.as_ptr()) };
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 use core::cmp::{Eq, PartialEq};
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
-use core::ptr::{self, NonNull};
+use core::ptr::NonNull;
 use core::str;
 
 use crate::error::{Error, Result};
@@ -11,38 +11,20 @@ use crate::{Module, WasmArg, WasmArgs, WasmType};
 
 /// Calling Context for a host function.
 pub struct CallContext<'cc> {
-    runtime: NonNull<ffi::M3Runtime>,
+    /// The currently active runtime
+    ///
+    /// Trying to load modules to this runtime will always fail
+    pub runtime: Runtime,
     _pd: PhantomData<fn(&'cc ()) -> &'cc ()>,
 }
 
 impl<'cc> CallContext<'cc> {
     pub(crate) fn from_rt(runtime: NonNull<ffi::M3Runtime>) -> CallContext<'cc> {
+        let runtime = Runtime::from_raw(runtime);
         CallContext {
             runtime,
             _pd: PhantomData,
         }
-    }
-
-    /// Returns the raw memory of the runtime associated with this context.
-    ///
-    /// # Safety
-    ///
-    /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
-    pub fn memory(&self) -> *const [u8] {
-        let mut memory_size = 0u32;
-        let data = unsafe { ffi::m3_GetMemory(self.runtime.as_ptr(), &mut memory_size, 0) };
-        ptr::slice_from_raw_parts(data, memory_size as usize)
-    }
-
-    /// Returns the raw memory of the runtime associated with this context.
-    ///
-    /// # Safety
-    ///
-    /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
-    pub fn memory_mut(&self) -> *mut [u8] {
-        let mut memory_size = 0u32;
-        let data = unsafe { ffi::m3_GetMemory(self.runtime.as_ptr(), &mut memory_size, 0) };
-        ptr::slice_from_raw_parts_mut(data, memory_size as usize)
     }
 }
 

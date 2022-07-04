@@ -98,6 +98,26 @@ impl fmt::Display for Wasm3Error {
     }
 }
 
+impl From<Wasm3Error> for Trap {
+    fn from(wasm3: Wasm3Error) -> Self {
+        unsafe {
+            match wasm3.0 {
+                e if e == ffi::m3Err_trapOutOfBoundsMemoryAccess => Trap::OutOfBoundsMemoryAccess,
+                e if e == ffi::m3Err_trapDivisionByZero => Trap::DivisionByZero,
+                e if e == ffi::m3Err_trapIntegerOverflow => Trap::IntegerOverflow,
+                e if e == ffi::m3Err_trapIntegerConversion => Trap::IntegerConversion,
+                e if e == ffi::m3Err_trapIndirectCallTypeMismatch => Trap::IndirectCallTypeMismatch,
+                e if e == ffi::m3Err_trapTableIndexOutOfRange => Trap::TableIndexOutOfRange,
+                e if e == ffi::m3Err_trapExit => Trap::Exit,
+                e if e == ffi::m3Err_trapAbort => Trap::Abort,
+                e if e == ffi::m3Err_trapUnreachable => Trap::Unreachable,
+                e if e == ffi::m3Err_trapStackOverflow => Trap::StackOverflow,
+                _ => Trap::Abort,
+            }
+        }
+    }
+}
+
 /// Error returned by wasm3-rs.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -111,6 +131,21 @@ pub enum Error {
     ModuleNotFound,
     /// The modules environment did not match the runtime's environment.
     ModuleLoadEnvMismatch,
+    /// The runtime is active and running, and modules can not be linked to it.
+    RuntimeIsActive,
+}
+
+impl Error {
+    /// Convert the error to a trap.
+    ///
+    /// If the error is not a Wasm3 error, this function returns Trap::Abort
+    pub fn into_trap(self) -> Trap {
+        let wasm3_err = match self {
+            Error::Wasm3(wasm3) => wasm3,
+            _ => unsafe { Wasm3Error(ffi::m3Err_trapAbort) },
+        };
+        wasm3_err.into()
+    }
 }
 
 impl Error {
@@ -143,6 +178,10 @@ impl fmt::Display for Error {
             Error::ModuleLoadEnvMismatch => {
                 write!(f, "the module and runtime environments were not the same")
             }
+            Error::RuntimeIsActive => write!(
+                f,
+                "the runtime is active and running, and modules can not be linked to it."
+            ),
         }
     }
 }
