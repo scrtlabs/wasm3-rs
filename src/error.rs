@@ -98,6 +98,12 @@ impl fmt::Display for Wasm3Error {
     }
 }
 
+impl From<Trap> for Wasm3Error {
+    fn from(trap: Trap) -> Self {
+        Self(trap.as_ptr())
+    }
+}
+
 impl From<Wasm3Error> for Trap {
     fn from(wasm3: Wasm3Error) -> Self {
         unsafe {
@@ -183,5 +189,17 @@ impl fmt::Display for Error {
                 "the runtime is active and running, and modules can not be linked to it."
             ),
         }
+    }
+}
+
+impl From<Wasm3Error> for Error {
+    fn from(error: Wasm3Error) -> Self {
+        Error::Wasm3(error)
+    }
+}
+
+impl From<Trap> for Error {
+    fn from(trap: Trap) -> Self {
+        Self::from(Wasm3Error::from(trap))
     }
 }
