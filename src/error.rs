@@ -139,6 +139,10 @@ pub enum Error {
     ModuleLoadEnvMismatch,
     /// The runtime is active and running, and modules can not be linked to it.
     RuntimeIsActive,
+    /// Global could not be found
+    GlobalNotFound,
+    /// argument type mismatch
+    ArgumentTypeMismatch,
 }
 
 impl Error {
@@ -188,6 +192,11 @@ impl fmt::Display for Error {
                 f,
                 "the runtime is active and running, and modules can not be linked to it."
             ),
+            Error::GlobalNotFound => write!(
+                f,
+                "the requested global could not be found in the wasm module"
+            ),
+            Error::ArgumentTypeMismatch => write!(f, "a type mismatch occurred"),
         }
     }
 }

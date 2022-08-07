@@ -1,5 +1,7 @@
 use alloc::vec::Vec;
 
+use crate::error::{Error, Result};
+
 // this module looks like a mess, lots of doc(hidden) attributes since rust traits cant have private functions
 mod private {
     #[doc(hidden)]
@@ -20,6 +22,17 @@ pub trait WasmType: Sized {
     unsafe fn push_on_stack(self, stack: *mut u64);
     #[doc(hidden)]
     fn sealed_() -> private::Seal;
+    /// Decode value from tagged.
+    fn from_tagged(_value: ffi::M3TaggedValue) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Err(Error::ArgumentTypeMismatch)
+    }
+    /// Encode value to tagged.
+    fn to_tagged(&self) -> Result<ffi::M3TaggedValue> {
+        Err(Error::ArgumentTypeMismatch)
+    }
 }
 
 /// Tait implemented by types that can be passed to wasm.
@@ -60,6 +73,19 @@ impl WasmType for i32 {
     fn sealed_() -> private::Seal {
         private::Seal
     }
+    fn from_tagged(value: ffi::M3TaggedValue) -> Result<Self> {
+        if value.type_ == ffi::M3ValueType::c_m3Type_i32 {
+            unsafe { Ok(value.value.i32_ as i32) }
+        } else {
+            Err(Error::ArgumentTypeMismatch)
+        }
+    }
+    fn to_tagged(&self) -> Result<ffi::M3TaggedValue> {
+        Ok(ffi::M3TaggedValue {
+            type_: ffi::M3ValueType::c_m3Type_i32,
+            value: ffi::M3TaggedValue_M3ValueUnion { i32_: *self as u32 },
+        })
+    }
 }
 
 impl WasmArg for u32 {}
@@ -81,6 +107,19 @@ impl WasmType for u32 {
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
         private::Seal
+    }
+    fn from_tagged(value: ffi::M3TaggedValue) -> Result<Self> {
+        if value.type_ == ffi::M3ValueType::c_m3Type_i32 {
+            unsafe { Ok(value.value.i32_) }
+        } else {
+            Err(Error::ArgumentTypeMismatch)
+        }
+    }
+    fn to_tagged(&self) -> Result<ffi::M3TaggedValue> {
+        Ok(ffi::M3TaggedValue {
+            type_: ffi::M3ValueType::c_m3Type_i32,
+            value: ffi::M3TaggedValue_M3ValueUnion { i32_: *self },
+        })
     }
 }
 
@@ -104,6 +143,19 @@ impl WasmType for i64 {
     fn sealed_() -> private::Seal {
         private::Seal
     }
+    fn from_tagged(value: ffi::M3TaggedValue) -> Result<Self> {
+        if value.type_ == ffi::M3ValueType::c_m3Type_i64 {
+            unsafe { Ok(value.value.i64_ as i64) }
+        } else {
+            Err(Error::ArgumentTypeMismatch)
+        }
+    }
+    fn to_tagged(&self) -> Result<ffi::M3TaggedValue> {
+        Ok(ffi::M3TaggedValue {
+            type_: ffi::M3ValueType::c_m3Type_i64,
+            value: ffi::M3TaggedValue_M3ValueUnion { i64_: *self as u64 },
+        })
+    }
 }
 
 impl WasmArg for u64 {}
@@ -125,6 +177,19 @@ impl WasmType for u64 {
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
         private::Seal
+    }
+    fn from_tagged(value: ffi::M3TaggedValue) -> Result<Self> {
+        if value.type_ == ffi::M3ValueType::c_m3Type_i64 {
+            unsafe { Ok(value.value.i64_) }
+        } else {
+            Err(Error::ArgumentTypeMismatch)
+        }
+    }
+    fn to_tagged(&self) -> Result<ffi::M3TaggedValue> {
+        Ok(ffi::M3TaggedValue {
+            type_: ffi::M3ValueType::c_m3Type_i64,
+            value: ffi::M3TaggedValue_M3ValueUnion { i64_: *self },
+        })
     }
 }
 
@@ -148,6 +213,19 @@ impl WasmType for f32 {
     fn sealed_() -> private::Seal {
         private::Seal
     }
+    fn from_tagged(value: ffi::M3TaggedValue) -> Result<Self> {
+        if value.type_ == ffi::M3ValueType::c_m3Type_f32 {
+            unsafe { Ok(value.value.f32_ as f32) }
+        } else {
+            Err(Error::ArgumentTypeMismatch)
+        }
+    }
+    fn to_tagged(&self) -> Result<ffi::M3TaggedValue> {
+        Ok(ffi::M3TaggedValue {
+            type_: ffi::M3ValueType::c_m3Type_f32,
+            value: ffi::M3TaggedValue_M3ValueUnion { f32_: *self },
+        })
+    }
 }
 
 impl WasmArg for f64 {}
@@ -170,6 +248,19 @@ impl WasmType for f64 {
     fn sealed_() -> private::Seal {
         private::Seal
     }
+    fn from_tagged(value: ffi::M3TaggedValue) -> Result<Self> {
+        if value.type_ == ffi::M3ValueType::c_m3Type_i32 {
+            unsafe { Ok(value.value.f64_ as f64) }
+        } else {
+            Err(Error::ArgumentTypeMismatch)
+        }
+    }
+    fn to_tagged(&self) -> Result<ffi::M3TaggedValue> {
+        Ok(ffi::M3TaggedValue {
+            type_: ffi::M3ValueType::c_m3Type_f64,
+            value: ffi::M3TaggedValue_M3ValueUnion { f64_: *self },
+        })
+    }
 }
 
 impl WasmType for () {
@@ -186,6 +277,19 @@ impl WasmType for () {
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
         private::Seal
+    }
+    fn from_tagged(value: ffi::M3TaggedValue) -> Result<Self> {
+        if value.type_ == ffi::M3ValueType::c_m3Type_none {
+            Ok(())
+        } else {
+            Err(Error::ArgumentTypeMismatch)
+        }
+    }
+    fn to_tagged(&self) -> Result<ffi::M3TaggedValue> {
+        Ok(ffi::M3TaggedValue {
+            type_: ffi::M3ValueType::c_m3Type_none,
+            value: ffi::M3TaggedValue_M3ValueUnion { i64_: 0 }, // just initialize it
+        })
     }
 }
 

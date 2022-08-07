@@ -9,6 +9,7 @@ use crate::error::{Error, Result, Trap};
 use crate::function::{CallContext, Function, RawCall};
 use crate::runtime::Runtime;
 use crate::utils::{cstr_to_str, str_to_cstr_owned};
+use crate::WasmType;
 
 #[derive(Debug)]
 struct DropModule(NonNull<ffi::M3Module>);
@@ -192,6 +193,39 @@ impl<'rt> Module<'rt> {
         };
         Error::from_ffi_res(result)?;
         self.rt.push_closure(closure);
+        Ok(())
+    }
+
+    /// Return the value of the given exported global.
+    pub fn get_global<T: WasmType>(&self, name: &str) -> Result<T> {
+        let global_name = str_to_cstr_owned(name);
+        let global = unsafe { ffi::m3_FindGlobal(self.raw, global_name.as_ptr()) };
+        if global.is_null() {
+            return Err(Error::GlobalNotFound);
+        }
+
+        let mut value = ffi::M3TaggedValue {
+            type_: ffi::M3ValueType::c_m3Type_unknown,
+            value: ffi::M3TaggedValue_M3ValueUnion { i64_: 0 },
+        };
+        let result = unsafe { ffi::m3_GetGlobal(global, &mut value) };
+        Error::from_ffi_res(result)?;
+
+        WasmType::from_tagged(value)
+    }
+
+    /// Set the value of the given exported global.
+    pub fn set_global<T: WasmType>(&self, name: &str, value: T) -> Result<()> {
+        let global_name = str_to_cstr_owned(name);
+        let global = unsafe { ffi::m3_FindGlobal(self.raw, global_name.as_ptr()) };
+        if global.is_null() {
+            return Err(Error::GlobalNotFound);
+        }
+
+        let mut value = value.to_tagged()?;
+        let result = unsafe { ffi::m3_SetGlobal(global, &mut value) };
+        Error::from_ffi_res(result)?;
+
         Ok(())
     }
 
