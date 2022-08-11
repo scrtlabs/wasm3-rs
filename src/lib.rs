@@ -1,9 +1,9 @@
 #![deny(rust_2018_idioms)]
 
 // Required explicitly to force inclusion at link time.
-#[cfg(target_env = "sgx")]
-#[allow(unused_extern_crates)]
-extern crate rs_libc;
+// #[cfg(target_env = "sgx")]
+// #[allow(unused_extern_crates)]
+// extern crate rs_libc;
 
 use std::{
     any::Any,

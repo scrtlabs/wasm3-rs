@@ -20,8 +20,8 @@ path = "wasm3-sys"
 package = "wasm3-sys"
 default-features = false
 
-[target.x86_64-fortanix-unknown-sgx.dependencies]
-rs-libc = "0.2.3"
+#[target.x86_64-fortanix-unknown-sgx.dependencies]
+#rs-libc = "0.2.3"
 
 [features]
 default = []
