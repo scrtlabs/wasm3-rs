@@ -933,17 +933,17 @@ impl Arg for i32 {
 }
 
 /// WASM function.
-pub struct Function<'fun, 'env, 'rt, C, A: Arg, R: Arg> {
+pub struct Function<'env, 'rt, 'inst, C, A: Arg, R: Arg> {
     raw: NonNull<ffi::M3Function>,
-    instance: &'fun Instance<'env, 'rt, C>,
+    instance: &'inst Instance<'env, 'rt, C>,
 
     _args: PhantomData<A>,
     _result: PhantomData<R>,
 }
 
-impl<'fun, 'env, 'rt, C, A: Arg, R: Arg> Function<'fun, 'env, 'rt, C, A, R> {
+impl<'env, 'rt, 'inst, C, A: Arg, R: Arg> Function<'env, 'rt, 'inst, C, A, R> {
     fn new(
-        instance: &'fun Instance<'env, 'rt, C>,
+        instance: &'inst Instance<'env, 'rt, C>,
         raw: NonNull<ffi::M3Function>,
     ) -> Result<Self, Error> {
         // Validate argument types.
