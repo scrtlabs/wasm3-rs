@@ -424,7 +424,7 @@ impl<'env, 'rt, C> Instance<'env, 'rt, C> {
     }
 
     /// Finds a function with the given name and argument/return types.
-    pub fn find_function<A, R>(&self, name: &str) -> Result<Function<'_, '_, '_, C, A, R>, Error>
+    pub fn find_function<'inst, A, R>(&'inst self, name: &str) -> Result<Function<'env, 'rt, 'inst, C, A, R>, Error>
     where
         A: Arg,
         R: Arg,
@@ -593,15 +593,15 @@ impl<'env, 'rt, C> Instance<'env, 'rt, C> {
             instance: self as *const Instance<'_, '_, C>,
         };
 
-        struct CallContextGuard<'a, 'env, 'rt, C> {
+        struct CallContextGuard<'env, 'rt, 'rud, C> {
             rt: &'rt Runtime<'env, C>,
-            userdata: &'a mut RuntimeUserdata<'env, 'rt, C>,
+            userdata: &'rud mut RuntimeUserdata<'env, 'rt, C>,
         }
 
-        impl<'a, 'env, 'rt, C> CallContextGuard<'a, 'env, 'rt, C> {
+        impl<'env, 'rt, 'rud, C> CallContextGuard<'env, 'rt, 'rud, C> {
             fn new(
                 rt: &'rt Runtime<'env, C>,
-                userdata: &'a mut RuntimeUserdata<'env, 'rt, C>,
+                userdata: &'rud mut RuntimeUserdata<'env, 'rt, C>,
                 ctx: Option<&mut C>,
             ) -> Self {
                 let rt_ptr = rt.raw.as_ptr();
@@ -618,7 +618,7 @@ impl<'env, 'rt, C> Instance<'env, 'rt, C> {
                         // NOTE: Even though userdata is a mutable reference, we never use it for
                         //       mutating any data in it, only for accessing it. This is only
                         //       required because the FFI bindings require a *mut c_void.
-                        (*rt_ptr).userdata = (userdata as *mut RuntimeUserdata<'_, '_, C>).cast();
+                        (*rt_ptr).userdata = (userdata as *mut RuntimeUserdata<'env, 'rt, C>).cast();
                     }
 
                     // Push call context to stack.
@@ -632,7 +632,7 @@ impl<'env, 'rt, C> Instance<'env, 'rt, C> {
             }
         }
 
-        impl<'a, 'env, 'rt, C> Drop for CallContextGuard<'a, 'env, 'rt, C> {
+        impl<'env, 'rt, 'rud, C> Drop for CallContextGuard<'env, 'rt, 'rud, C> {
             fn drop(&mut self) {
                 let rt_ptr = self.rt.raw.as_ptr();
                 unsafe {
@@ -648,7 +648,7 @@ impl<'env, 'rt, C> Instance<'env, 'rt, C> {
                     if cc_stack.is_empty() {
                         assert!(
                             (*rt_ptr).userdata
-                                == (self.userdata as *mut RuntimeUserdata<'_, '_, C>).cast()
+                                == (self.userdata as *mut RuntimeUserdata<'env, 'rt, C>).cast()
                         );
                         (*rt_ptr).userdata = ptr::null_mut();
                     }
