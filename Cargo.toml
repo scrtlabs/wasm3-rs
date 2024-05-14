@@ -24,6 +24,7 @@ use-32bit-slots = ["ffi/use-32bit-slots"]
 build-bindgen = ["ffi/build-bindgen"]
 
 [dependencies]
+bindgen = "0.69.4"
 cty = "0.2"
 
 [dependencies.ffi]
